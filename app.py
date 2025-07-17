@@ -322,31 +322,18 @@ def location_view(location_folder):
 
 @app.route('/location/<location_folder>/<category>')
 def category_view(location_folder, category):
-    """View all images in a specific category within a location"""
+    """View all images in a specific category within a location - Fast loading version"""
     try:
-        page = request.args.get('page', 1, type=int)
-        per_page = 50  # Increased from 20 to 50
-        offset = (page - 1) * per_page
-        
-        # Get location details from metadata
+        # Get location details from metadata (cached)
         location_info = get_location_details_from_metadata(location_folder)
         
-        # Get all objects in this category
-        objects = list_s3_objects(f"images/{location_folder}/{category}/")
+        # Don't load any images here - just return the page structure
+        # Images will be loaded via AJAX with pagination
         
-        # Paginate
-        total_objects = len(objects)
-        total_pages = (total_objects + per_page - 1) // per_page
-        paginated_objects = objects[offset:offset + per_page]
-        
-        return render_template('category.html',
+        return render_template('category_fast.html',
                              location_folder=location_folder,
                              location_info=location_info,
-                             category=category,
-                             objects=paginated_objects,
-                             page=page,
-                             total_pages=total_pages,
-                             total_objects=total_objects)
+                             category=category)
     except Exception as e:
         return render_template('error.html', error=str(e))
 
@@ -492,6 +479,33 @@ def api_location_categories(location_folder):
         return jsonify({
             'location_folder': location_folder,
             'categories': category_data
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/location/<location_folder>/<category>/images')
+def api_category_images(location_folder, category):
+    """API endpoint to get images in a category with pagination"""
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 20, type=int)  # Small batches for speed
+    
+    try:
+        # Get all objects in this category
+        all_objects = list_s3_objects(f"images/{location_folder}/{category}/")
+        
+        # Paginate
+        total_objects = len(all_objects)
+        total_pages = (total_objects + per_page - 1) // per_page
+        offset = (page - 1) * per_page
+        paginated_objects = all_objects[offset:offset + per_page]
+        
+        return jsonify({
+            'objects': paginated_objects,
+            'page': page,
+            'total_pages': total_pages,
+            'total_objects': total_objects,
+            'per_page': per_page,
+            'has_more': page < total_pages
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500

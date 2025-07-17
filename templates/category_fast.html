@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ category|replace('_', ' ')|title }} - {{ location_folder }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary-pink: #f8e0e0;
+            --accent-pink: #f0c8c8;
+            --dark-pink: #d4a5a5;
+            --text-dark: #2c3e50;
+            --text-muted: #6c757d;
+            --bg-light: #fafafa;
+            --border-light: #e9ecef;
+        }
+        
+        body {
+            background: var(--bg-light);
+            color: var(--text-dark);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+        }
+        
+        .navbar {
+            background: white;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 1rem 0;
+        }
+        
+        .navbar-brand {
+            font-weight: 600;
+            color: var(--text-dark) !important;
+        }
+        
+        .main-container {
+            background: white;
+            border-radius: 16px;
+            padding: 2.5rem;
+            margin: 2rem 0;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            border: 1px solid var(--border-light);
+        }
+        
+        .section-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--text-dark);
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        
+        .section-title i {
+            color: var(--dark-pink);
+        }
+        
+        .back-btn {
+            background: var(--dark-pink);
+            border: none;
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .back-btn:hover {
+            background: var(--accent-pink);
+            color: var(--text-dark);
+            transform: translateX(-2px);
+            text-decoration: none;
+        }
+        
+        .text-primary {
+            color: var(--dark-pink) !important;
+        }
+        
+        .location-info {
+            background: var(--primary-pink);
+            border: 1px solid var(--accent-pink);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        
+        .location-info h2 {
+            margin: 0;
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--text-dark);
+        }
+        
+        .image-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+        
+        .image-card {
+            background: white;
+            border: 1px solid var(--border-light);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        
+        .image-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+        }
+        
+        .image-card img {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+        }
+        
+        .image-info {
+            padding: 1rem;
+        }
+        
+        .image-filename {
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: var(--text-dark);
+            margin-bottom: 0.5rem;
+            word-break: break-word;
+        }
+        
+        .image-meta {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+        
+        .loading-spinner {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-muted);
+        }
+        
+        .load-more-btn {
+            background: var(--dark-pink);
+            border: none;
+            color: white;
+            padding: 1rem 2rem;
+            border-radius: 8px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            margin: 2rem auto;
+            display: block;
+        }
+        
+        .load-more-btn:hover {
+            background: var(--accent-pink);
+            color: var(--text-dark);
+            transform: translateY(-1px);
+        }
+        
+        .load-more-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        .stats-bar {
+            background: var(--primary-pink);
+            border: 1px solid var(--accent-pink);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+    </style>
+</head>
+<body>
+<nav class="navbar navbar-expand-lg">
+    <div class="container">
+        <a class="navbar-brand" href="{{ url_for('index') }}">
+            <i class="fas fa-cloud-upload-alt me-2"></i>
+            S3 Image Dashboard
+        </a>
+    </div>
+</nav>
+
+<div class="container">
+    <a href="{{ url_for('location_view', location_folder=location_folder) }}" class="back-btn mb-4">
+        <i class="fas fa-arrow-left"></i>
+        Back to Location
+    </a>
+    
+    <div class="main-container">
+        <div class="location-info">
+            <h2>
+                <i class="fas fa-building me-2"></i>
+                {% if location_info.street or location_info.city or location_info.state %}
+                    {% if location_info.street %}
+                        {{ location_info.street|title }}
+                    {% endif %}
+                    {% if location_info.city and location_info.state %}
+                        {% if location_info.street %}<br>{% endif %}
+                        {{ location_info.city|title }}, {{ location_info.state|upper }}
+                    {% elif location_info.city %}
+                        {% if location_info.street %}<br>{% endif %}
+                        {{ location_info.city|title }}
+                    {% elif location_info.state %}
+                        {% if location_info.street %}<br>{% endif %}
+                        {{ location_info.state|upper }}
+                    {% endif %}
+                    {% if location_info.zipcode %}
+                        <br><small class="text-muted">{{ location_info.zipcode }}</small>
+                    {% endif %}
+                {% else %}
+                    {{ location_folder }}
+                {% endif %}
+            </h2>
+        </div>
+        
+        <h2 class="section-title">
+            <i class="fas fa-images"></i>
+            {{ category|replace('_', ' ')|title }}
+        </h2>
+        
+        <!-- Stats bar -->
+        <div class="stats-bar">
+            <div>
+                <strong id="total-count">Loading...</strong> images
+            </div>
+            <div>
+                <span id="loaded-count">0</span> loaded
+            </div>
+        </div>
+        
+        <!-- Images will be loaded here -->
+        <div id="images-container" class="image-grid">
+        </div>
+        
+        <!-- Loading spinner -->
+        <div id="loading-spinner" class="loading-spinner" style="display: none;">
+            <i class="fas fa-spinner fa-spin fa-2x mb-2"></i>
+            <p>Loading more images...</p>
+        </div>
+        
+        <!-- Load more button -->
+        <button id="load-more-btn" class="load-more-btn" style="display: none;">
+            <i class="fas fa-plus me-2"></i>
+            Load More Images
+        </button>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+let currentPage = 1;
+let hasMore = true;
+let isLoading = false;
+
+document.addEventListener('DOMContentLoaded', function() {
+    const locationFolder = '{{ location_folder }}';
+    const category = '{{ category }}';
+    
+    // Load first batch of images
+    loadImages();
+    
+    // Set up infinite scroll
+    window.addEventListener('scroll', function() {
+        if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 1000) {
+            if (hasMore && !isLoading) {
+                loadImages();
+            }
+        }
+    });
+    
+    // Load more button click
+    document.getElementById('load-more-btn').addEventListener('click', function() {
+        if (hasMore && !isLoading) {
+            loadImages();
+        }
+    });
+    
+    function loadImages() {
+        if (isLoading) return;
+        
+        isLoading = true;
+        const spinner = document.getElementById('loading-spinner');
+        const loadMoreBtn = document.getElementById('load-more-btn');
+        
+        spinner.style.display = 'block';
+        loadMoreBtn.style.display = 'none';
+        
+        fetch(`/api/location/${locationFolder}/${category}/images?page=${currentPage}&per_page=20`)
+            .then(response => response.json())
+            .then(data => {
+                const container = document.getElementById('images-container');
+                
+                // Update stats
+                document.getElementById('total-count').textContent = data.total_objects;
+                const loadedCount = (currentPage - 1) * 20 + data.objects.length;
+                document.getElementById('loaded-count').textContent = loadedCount;
+                
+                // Add images to grid
+                data.objects.forEach(obj => {
+                    const imageCard = `
+                        <div class="image-card">
+                            <img src="${obj.presigned_url}" alt="${obj.filename}" loading="lazy">
+                            <div class="image-info">
+                                <div class="image-filename">${obj.filename}</div>
+                                <div class="image-meta">
+                                    ${formatFileSize(obj.size)} • ${formatDate(obj.last_modified)}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    container.innerHTML += imageCard;
+                });
+                
+                // Update pagination
+                currentPage++;
+                hasMore = data.has_more;
+                
+                // Show/hide load more button
+                if (hasMore) {
+                    loadMoreBtn.style.display = 'block';
+                }
+            })
+            .catch(error => {
+                console.error('Error loading images:', error);
+                document.getElementById('images-container').innerHTML += `
+                    <div class="col-12 text-center text-danger py-3">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Error loading images. Please try again.
+                    </div>
+                `;
+            })
+            .finally(() => {
+                isLoading = false;
+                spinner.style.display = 'none';
+            });
+    }
+    
+    function formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+    
+    function formatDate(dateString) {
+        const date = new Date(dateString);
+        return date.toLocaleDateString();
+    }
+});
+</script>
+</body>
+</html> 
