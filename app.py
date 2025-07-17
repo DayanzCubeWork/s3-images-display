@@ -6,6 +6,8 @@ from dotenv import load_dotenv
 import json
 from botocore.exceptions import ClientError
 from typing import List, Dict, Optional
+from functools import lru_cache
+import time
 
 # Load environment variables
 load_dotenv()
@@ -18,13 +20,24 @@ AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
 AWS_REGION = os.getenv("AWS_REGION", "us-west-1")
 
-# Initialize S3 client
+# Initialize S3 client with timeout
 s3_client = boto3.client(
     's3',
     aws_access_key_id=AWS_ACCESS_KEY_ID,
     aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
-    region_name=AWS_REGION
+    region_name=AWS_REGION,
+    config=boto3.session.Config(
+        connect_timeout=30,
+        read_timeout=30,
+        retries={'max_attempts': 2}
+    )
 )
+
+# Cache for expensive operations
+@lru_cache(maxsize=32)
+def cached_list_s3_objects(prefix: str, max_keys: int = 1000) -> List[Dict]:
+    """Cached version of list_s3_objects to reduce API calls"""
+    return list_s3_objects(prefix, max_keys)
 
 def list_s3_objects(prefix: str = "", max_keys: int = 1000) -> List[Dict]:
     """List objects in S3 bucket with optional prefix"""
@@ -38,15 +51,8 @@ def list_s3_objects(prefix: str = "", max_keys: int = 1000) -> List[Dict]:
         objects = []
         if 'Contents' in response:
             for obj in response['Contents']:
-                # Get object metadata
-                try:
-                    head_response = s3_client.head_object(
-                        Bucket=S3_BUCKET_NAME,
-                        Key=obj['Key']
-                    )
-                    metadata = head_response.get('Metadata', {})
-                except:
-                    metadata = {}
+                # Skip metadata fetching for performance
+                metadata = {}
                 
                 # Generate presigned URL for viewing (expires in 1 hour)
                 try:
@@ -71,6 +77,11 @@ def list_s3_objects(prefix: str = "", max_keys: int = 1000) -> List[Dict]:
     except Exception as e:
         print(f"Error listing S3 objects: {e}")
         return []
+
+@lru_cache(maxsize=16)
+def cached_get_location_folders() -> List[str]:
+    """Cached version of get_location_folders"""
+    return get_location_folders()
 
 def get_location_folders() -> List[str]:
     """Get all location folders from S3, sorted alphabetically by state"""
@@ -130,9 +141,9 @@ def get_location_details_from_metadata(location_folder: str) -> Dict:
         # Get all categories in this location
         categories = get_categories_in_location(location_folder)
         
-        # Look through categories to find metadata
-        for category in categories:
-            objects = list_s3_objects(f"images/{location_folder}/{category}/", max_keys=5)
+        # Look through categories to find metadata (limit to first 3 categories for performance)
+        for category in categories[:3]:
+            objects = list_s3_objects(f"images/{location_folder}/{category}/", max_keys=3)
             for obj in objects:
                 metadata = obj.get('metadata', {})
                 if metadata.get('xmp-street') or metadata.get('xmp-city') or metadata.get('xmp-state'):
@@ -166,16 +177,16 @@ def get_location_details_from_metadata(location_folder: str) -> Dict:
 def index():
     """Main dashboard page"""
     try:
-        # Get location folders
-        location_folders = get_location_folders()
+        # Get location folders (cached)
+        location_folders = cached_get_location_folders()
         
-        # Get some basic stats
+        # Get some basic stats (limited for performance)
         total_objects = 0
         total_size = 0
         
-        # Get location details with metadata
+        # Get location details with metadata (limit to first 10 for performance)
         location_details = []
-        for location in location_folders:
+        for location in location_folders[:10]:
             # Get location details from metadata
             location_info = get_location_details_from_metadata(location)
             
@@ -188,9 +199,9 @@ def index():
                 'location': location_info['location']
             })
             
-            # Get stats from first 5 locations
-            if len(location_details) <= 5:
-                objects = list_s3_objects(f"images/{location}/", max_keys=100)
+            # Get stats from first 3 locations only
+            if len(location_details) <= 3:
+                objects = list_s3_objects(f"images/{location}/", max_keys=50)
                 total_objects += len(objects)
                 total_size += sum(obj['size'] for obj in objects)
         
