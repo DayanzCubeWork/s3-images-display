@@ -8,11 +8,36 @@ from botocore.exceptions import ClientError
 from typing import List, Dict, Optional
 from functools import lru_cache
 import time
+import threading
 
 # Load environment variables
 load_dotenv()
 
 app = Flask(__name__)
+
+# Simple in-memory cache
+_cache = {}
+_cache_lock = threading.Lock()
+
+def get_cached(key, ttl_seconds=300):
+    """Get value from cache with TTL"""
+    with _cache_lock:
+        if key in _cache:
+            value, timestamp = _cache[key]
+            if time.time() - timestamp < ttl_seconds:
+                return value
+            else:
+                del _cache[key]
+    return None
+
+def set_cached(key, value, ttl_seconds=300):
+    """Set value in cache with TTL"""
+    with _cache_lock:
+        _cache[key] = (value, time.time())
+        # Clean old entries if cache gets too big
+        if len(_cache) > 100:
+            current_time = time.time()
+            _cache.clear()  # Simple cleanup for now
 
 # S3 Configuration
 S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME")
@@ -41,6 +66,12 @@ def cached_list_s3_objects(prefix: str, max_keys: int = 1000) -> List[Dict]:
 
 def list_s3_objects(prefix: str = "", max_keys: int = 1000) -> List[Dict]:
     """List objects in S3 bucket with optional prefix"""
+    # Check cache first
+    cache_key = f"s3_objects_{prefix}_{max_keys}"
+    cached_result = get_cached(cache_key, ttl_seconds=600)  # Cache for 10 minutes
+    if cached_result:
+        return cached_result
+    
     try:
         response = s3_client.list_objects_v2(
             Bucket=S3_BUCKET_NAME,
@@ -80,6 +111,8 @@ def list_s3_objects(prefix: str = "", max_keys: int = 1000) -> List[Dict]:
                     'filename': obj['Key'].split('/')[-1]
                 })
         
+        # Cache the result
+        set_cached(cache_key, objects, ttl_seconds=600)
         return objects
     except Exception as e:
         print(f"Error listing S3 objects: {e}")
@@ -92,6 +125,12 @@ def cached_get_location_folders() -> List[str]:
 
 def get_location_folders() -> List[str]:
     """Get all location folders from S3, sorted alphabetically by state"""
+    # Check cache first
+    cache_key = "location_folders"
+    cached_result = get_cached(cache_key, ttl_seconds=900)  # Cache for 15 minutes
+    if cached_result:
+        return cached_result
+    
     try:
         response = s3_client.list_objects_v2(
             Bucket=S3_BUCKET_NAME,
@@ -116,6 +155,8 @@ def get_location_folders() -> List[str]:
         # Sort folders by state, then by full name for locations in same state
         sorted_folders = sorted(folders, key=lambda x: (extract_state(x), x))
         
+        # Cache the result
+        set_cached(cache_key, sorted_folders, ttl_seconds=900)
         return sorted_folders
     except Exception as e:
         print(f"Error getting location folders: {e}")
