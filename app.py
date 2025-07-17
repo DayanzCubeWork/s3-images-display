@@ -51,8 +51,15 @@ def list_s3_objects(prefix: str = "", max_keys: int = 1000) -> List[Dict]:
         objects = []
         if 'Contents' in response:
             for obj in response['Contents']:
-                # Skip metadata fetching for performance
-                metadata = {}
+                # Get object metadata (re-enabled for better address info)
+                try:
+                    head_response = s3_client.head_object(
+                        Bucket=S3_BUCKET_NAME,
+                        Key=obj['Key']
+                    )
+                    metadata = head_response.get('Metadata', {})
+                except:
+                    metadata = {}
                 
                 # Generate presigned URL for viewing (expires in 1 hour)
                 try:
@@ -142,50 +149,83 @@ def get_location_details_from_metadata(location_folder: str) -> Dict:
         categories = get_categories_in_location(location_folder)
         
         # Look through categories to find metadata (increased limit for better coverage)
-        for category in categories[:5]:  # Increased from 3 to 5 categories
-            objects = list_s3_objects(f"images/{location_folder}/{category}/", max_keys=5)  # Increased from 3 to 5
+        for category in categories[:8]:  # Increased from 5 to 8 categories
+            objects = list_s3_objects(f"images/{location_folder}/{category}/", max_keys=10)  # Increased from 5 to 10
             for obj in objects:
                 metadata = obj.get('metadata', {})
                 if metadata.get('xmp-street') or metadata.get('xmp-city') or metadata.get('xmp-state'):
-                    return {
+                    result = {
                         'street': metadata.get('xmp-street', ''),
                         'city': metadata.get('xmp-city', ''),
                         'state': metadata.get('xmp-state', ''),
                         'zipcode': metadata.get('xmp-zipcode', ''),
                         'location': metadata.get('xmp-location', '')
                     }
+                    print(f"Found metadata for {location_folder}: {result}")
+                    return result
         
         # If no metadata found, try to parse from folder name
-        # Example: "n83rdave_tolleson_az" -> "N 83rd Ave, Tolleson, AZ"
+        # Handle various folder name formats
         if '_' in location_folder:
             parts = location_folder.split('_')
-            if len(parts) >= 3:
-                # Handle street name parsing
-                street_part = parts[0]
-                if street_part.startswith('n') and len(street_part) > 1:
-                    street = f"N {street_part[1:]} Ave"
-                elif street_part.startswith('s') and len(street_part) > 1:
-                    street = f"S {street_part[1:]} Ave"
-                elif street_part.startswith('e') and len(street_part) > 1:
-                    street = f"E {street_part[1:]} Ave"
-                elif street_part.startswith('w') and len(street_part) > 1:
-                    street = f"W {street_part[1:]} Ave"
-                else:
-                    street = street_part.title()
+            
+            # Handle format: "long_beach_ca" -> "Long Beach, CA"
+            if len(parts) >= 2:
+                # Check if last part is a state abbreviation (2 letters)
+                last_part = parts[-1].lower()
+                if len(last_part) == 2 and last_part in ['ca', 'az', 'nv', 'tx', 'fl', 'ny', 'il', 'pa', 'oh', 'ga', 'nc', 'mi', 'nj', 'va', 'wa', 'or', 'co', 'mn', 'wi', 'md', 'mo', 'tn', 'in', 'ma', 'ct', 'sc', 'la', 'al', 'ky', 'ut', 'ia', 'ar', 'ms', 'ks', 'ne', 'id', 'hi', 'nh', 'me', 'ri', 'mt', 'de', 'sd', 'nd', 'ak', 'vt', 'wy', 'wv']:
+                    # Everything except the last part is the location name
+                    location_name = '_'.join(parts[:-1])
+                    state = parts[-1].upper()
+                    
+                    # Try to separate city and street if possible
+                    location_parts = location_name.split('_')
+                    if len(location_parts) >= 2:
+                        # Assume first part might be street direction/name, rest is city
+                        street = location_parts[0].title()
+                        city = ' '.join(location_parts[1:]).title()
+                    else:
+                        street = ''
+                        city = location_name.replace('_', ' ').title()
+                    
+                    result = {
+                        'street': street,
+                        'city': city,
+                        'state': state,
+                        'zipcode': '',
+                        'location': f"{city}, {state}" if city else f"{state}"
+                    }
+                    
+                    print(f"Parsed address for {location_folder}: {result}")
+                    return result
                 
-                city = parts[1].title()
-                state = parts[2].upper()
-                
-                result = {
-                    'street': street,
-                    'city': city,
-                    'state': state,
-                    'zipcode': '',
-                    'location': f"{street}, {city}, {state}"
-                }
-                
-                print(f"Parsed address for {location_folder}: {result}")
-                return result
+                # Handle format: "n83rdave_tolleson_az" -> "N 83rd Ave, Tolleson, AZ"
+                elif len(parts) >= 3:
+                    street_part = parts[0]
+                    if street_part.startswith('n') and len(street_part) > 1:
+                        street = f"N {street_part[1:]} Ave"
+                    elif street_part.startswith('s') and len(street_part) > 1:
+                        street = f"S {street_part[1:]} Ave"
+                    elif street_part.startswith('e') and len(street_part) > 1:
+                        street = f"E {street_part[1:]} Ave"
+                    elif street_part.startswith('w') and len(street_part) > 1:
+                        street = f"W {street_part[1:]} Ave"
+                    else:
+                        street = street_part.title()
+                    
+                    city = parts[1].title()
+                    state = parts[2].upper()
+                    
+                    result = {
+                        'street': street,
+                        'city': city,
+                        'state': state,
+                        'zipcode': '',
+                        'location': f"{street}, {city}, {state}"
+                    }
+                    
+                    print(f"Parsed address for {location_folder}: {result}")
+                    return result
         
         # Fallback: return empty dict if no metadata found
         return {
