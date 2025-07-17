@@ -148,9 +148,9 @@ def get_location_details_from_metadata(location_folder: str) -> Dict:
         # Get all categories in this location
         categories = get_categories_in_location(location_folder)
         
-        # Look through categories to find metadata (increased limit for better coverage)
-        for category in categories[:8]:  # Increased from 5 to 8 categories
-            objects = list_s3_objects(f"images/{location_folder}/{category}/", max_keys=10)  # Increased from 5 to 10
+        # Look through categories to find metadata (optimized for speed)
+        for category in categories[:3]:  # Reduced from 8 to 3 categories for speed
+            objects = list_s3_objects(f"images/{location_folder}/{category}/", max_keys=3)  # Reduced from 10 to 3
             for obj in objects:
                 metadata = obj.get('metadata', {})
                 if metadata.get('xmp-street') or metadata.get('xmp-city') or metadata.get('xmp-state'):
@@ -256,9 +256,9 @@ def index():
         total_objects = 0
         total_size = 0
         
-        # Get location details with metadata (increased limit to show more locations)
+        # Get location details with metadata (reduced for speed)
         location_details = []
-        for location in location_folders[:20]:  # Increased from 10 to 20
+        for location in location_folders[:15]:  # Reduced from 20 to 15
             # Get location details from metadata
             location_info = get_location_details_from_metadata(location)
             
@@ -271,9 +271,9 @@ def index():
                 'location': location_info['location']
             })
             
-            # Get stats from first 5 locations (increased from 3 to 5)
-            if len(location_details) <= 5:
-                objects = list_s3_objects(f"images/{location}/", max_keys=100)  # Increased from 50 to 100
+            # Get stats from first 3 locations only (reduced for speed)
+            if len(location_details) <= 3:
+                objects = list_s3_objects(f"images/{location}/", max_keys=50)  # Reduced from 100 to 50
                 total_objects += len(objects)
                 total_size += sum(obj['size'] for obj in objects)
         
