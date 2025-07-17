@@ -121,6 +121,11 @@ def get_location_folders() -> List[str]:
         print(f"Error getting location folders: {e}")
         return []
 
+@lru_cache(maxsize=32)
+def cached_get_categories_in_location(location_folder: str) -> List[str]:
+    """Cached version of get_categories_in_location"""
+    return get_categories_in_location(location_folder)
+
 def get_categories_in_location(location_folder: str) -> List[str]:
     """Get all categories within a location folder"""
     try:
@@ -294,24 +299,35 @@ def index():
 def location_view(location_folder):
     """View images in a specific location"""
     try:
-        categories = get_categories_in_location(location_folder)
+        print(f"Loading location view for: {location_folder}")
         
-        # Get location details from metadata
+        categories = cached_get_categories_in_location(location_folder)
+        print(f"Found {len(categories)} categories: {categories}")
+        
+        # Get location details from metadata (cached)
         location_info = get_location_details_from_metadata(location_folder)
+        print(f"Location info: {location_info}")
         
-        # Get sample images from each category (limited for performance)
+        # Get sample images from each category (very limited for speed)
         category_samples = {}
         category_counts = {}
         
         for category in categories:
-            # Get sample images for preview
-            sample_objects = list_s3_objects(f"images/{location_folder}/{category}/", max_keys=5)
+            print(f"Processing category: {category}")
+            # Get only 3 sample images for preview (reduced from 5)
+            sample_objects = list_s3_objects(f"images/{location_folder}/{category}/", max_keys=3)
             category_samples[category] = sample_objects
             
-            # Get total count for this category
-            all_objects = list_s3_objects(f"images/{location_folder}/{category}/")
-            category_counts[category] = len(all_objects)
+            # Get total count for this category (limited to first 1000 for speed)
+            try:
+                all_objects = list_s3_objects(f"images/{location_folder}/{category}/", max_keys=1000)
+                category_counts[category] = len(all_objects)
+                print(f"Category {category}: {len(all_objects)} images")
+            except Exception as e:
+                print(f"Error counting images in {category}: {e}")
+                category_counts[category] = 0
         
+        print(f"Rendering template for {location_folder}")
         return render_template('location.html', 
                              location_folder=location_folder,
                              location_info=location_info,
@@ -319,6 +335,7 @@ def location_view(location_folder):
                              category_samples=category_samples,
                              category_counts=category_counts)
     except Exception as e:
+        print(f"Error in location_view for {location_folder}: {e}")
         return render_template('error.html', error=str(e))
 
 @app.route('/location/<location_folder>/<category>')
