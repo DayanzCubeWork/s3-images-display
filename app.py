@@ -148,9 +148,9 @@ def get_location_details_from_metadata(location_folder: str) -> Dict:
         # Get all categories in this location
         categories = get_categories_in_location(location_folder)
         
-        # Look through categories to find metadata (optimized for speed)
-        for category in categories[:3]:  # Reduced from 8 to 3 categories for speed
-            objects = list_s3_objects(f"images/{location_folder}/{category}/", max_keys=3)  # Reduced from 10 to 3
+        # Look through categories to find metadata (ultra-fast search)
+        for category in categories[:2]:  # Only check first 2 categories
+            objects = list_s3_objects(f"images/{location_folder}/{category}/", max_keys=2)  # Only check first 2 images
             for obj in objects:
                 metadata = obj.get('metadata', {})
                 if metadata.get('xmp-street') or metadata.get('xmp-city') or metadata.get('xmp-state'):
@@ -161,7 +161,6 @@ def get_location_details_from_metadata(location_folder: str) -> Dict:
                         'zipcode': metadata.get('xmp-zipcode', ''),
                         'location': metadata.get('xmp-location', '')
                     }
-                    print(f"Found metadata for {location_folder}: {result}")
                     return result
         
         # If no metadata found, try to parse from folder name
@@ -249,17 +248,17 @@ def get_location_details_from_metadata(location_folder: str) -> Dict:
 def index():
     """Main dashboard page"""
     try:
-        # Get location folders (cached)
+        # Get ALL location folders (no limit)
         location_folders = cached_get_location_folders()
         
-        # Get some basic stats (increased limits for better data)
+        # Get basic stats without loading all images
         total_objects = 0
         total_size = 0
         
-        # Get location details with metadata (reduced for speed)
+        # Get location details with metadata (load all folders but limit metadata search)
         location_details = []
-        for location in location_folders[:15]:  # Reduced from 20 to 15
-            # Get location details from metadata
+        for location in location_folders:  # No limit - show all folders
+            # Get location details from metadata (optimized search)
             location_info = get_location_details_from_metadata(location)
             
             location_details.append({
@@ -271,11 +270,17 @@ def index():
                 'location': location_info['location']
             })
             
-            # Get stats from first 3 locations only (reduced for speed)
-            if len(location_details) <= 3:
-                objects = list_s3_objects(f"images/{location}/", max_keys=50)  # Reduced from 100 to 50
+            # Only calculate stats for first 5 locations to avoid timeout
+            if len(location_details) <= 5:
+                objects = list_s3_objects(f"images/{location}/", max_keys=50)
                 total_objects += len(objects)
                 total_size += sum(obj['size'] for obj in objects)
+        
+        # Estimate total objects based on first 5 locations
+        if len(location_folders) > 5:
+            avg_objects_per_location = total_objects / 5
+            estimated_total = int(avg_objects_per_location * len(location_folders))
+            total_objects = estimated_total
         
         return render_template('index.html', 
                              location_folders=location_folders,
@@ -294,17 +299,25 @@ def location_view(location_folder):
         # Get location details from metadata
         location_info = get_location_details_from_metadata(location_folder)
         
-        # Get sample images from each category
+        # Get sample images from each category (limited for performance)
         category_samples = {}
+        category_counts = {}
+        
         for category in categories:
-            objects = list_s3_objects(f"images/{location_folder}/{category}/", max_keys=5)
-            category_samples[category] = objects
+            # Get sample images for preview
+            sample_objects = list_s3_objects(f"images/{location_folder}/{category}/", max_keys=5)
+            category_samples[category] = sample_objects
+            
+            # Get total count for this category
+            all_objects = list_s3_objects(f"images/{location_folder}/{category}/")
+            category_counts[category] = len(all_objects)
         
         return render_template('location.html', 
                              location_folder=location_folder,
                              location_info=location_info,
                              categories=categories,
-                             category_samples=category_samples)
+                             category_samples=category_samples,
+                             category_counts=category_counts)
     except Exception as e:
         return render_template('error.html', error=str(e))
 
@@ -421,6 +434,40 @@ def api_stats():
             stats['total_size'] += location_size
         
         return jsonify(stats)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/location/<location_folder>/images')
+def api_location_images(location_folder):
+    """API endpoint to get all images in a location with pagination"""
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 50, type=int)
+    category = request.args.get('category', '')
+    
+    try:
+        if category:
+            # Get images from specific category
+            prefix = f"images/{location_folder}/{category}/"
+        else:
+            # Get images from all categories
+            prefix = f"images/{location_folder}/"
+        
+        # Get all objects in this location/category
+        all_objects = list_s3_objects(prefix)
+        
+        # Paginate
+        total_objects = len(all_objects)
+        total_pages = (total_objects + per_page - 1) // per_page
+        offset = (page - 1) * per_page
+        paginated_objects = all_objects[offset:offset + per_page]
+        
+        return jsonify({
+            'objects': paginated_objects,
+            'page': page,
+            'total_pages': total_pages,
+            'total_objects': total_objects,
+            'per_page': per_page
+        })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
