@@ -297,10 +297,11 @@ def index():
 
 @app.route('/location/<location_folder>')
 def location_view(location_folder):
-    """View images in a specific location"""
+    """View images in a specific location - Fast loading version"""
     try:
         print(f"Loading location view for: {location_folder}")
         
+        # Get categories quickly (cached)
         categories = cached_get_categories_in_location(location_folder)
         print(f"Found {len(categories)} categories: {categories}")
         
@@ -308,32 +309,13 @@ def location_view(location_folder):
         location_info = get_location_details_from_metadata(location_folder)
         print(f"Location info: {location_info}")
         
-        # Get sample images from each category (very limited for speed)
-        category_samples = {}
-        category_counts = {}
+        # Don't load any images here - just return the page structure
+        # Images will be loaded via AJAX after page loads
         
-        for category in categories:
-            print(f"Processing category: {category}")
-            # Get only 3 sample images for preview (reduced from 5)
-            sample_objects = list_s3_objects(f"images/{location_folder}/{category}/", max_keys=3)
-            category_samples[category] = sample_objects
-            
-            # Get total count for this category (limited to first 1000 for speed)
-            try:
-                all_objects = list_s3_objects(f"images/{location_folder}/{category}/", max_keys=1000)
-                category_counts[category] = len(all_objects)
-                print(f"Category {category}: {len(all_objects)} images")
-            except Exception as e:
-                print(f"Error counting images in {category}: {e}")
-                category_counts[category] = 0
-        
-        print(f"Rendering template for {location_folder}")
-        return render_template('location.html', 
+        return render_template('location_fast.html', 
                              location_folder=location_folder,
                              location_info=location_info,
-                             categories=categories,
-                             category_samples=category_samples,
-                             category_counts=category_counts)
+                             categories=categories)
     except Exception as e:
         print(f"Error in location_view for {location_folder}: {e}")
         return render_template('error.html', error=str(e))
@@ -484,6 +466,32 @@ def api_location_images(location_folder):
             'total_pages': total_pages,
             'total_objects': total_objects,
             'per_page': per_page
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/location/<location_folder>/categories')
+def api_location_categories(location_folder):
+    """API endpoint to get category data for a location"""
+    try:
+        categories = cached_get_categories_in_location(location_folder)
+        
+        category_data = []
+        for category in categories:
+            # Get sample images and count quickly
+            sample_objects = list_s3_objects(f"images/{location_folder}/{category}/", max_keys=3)
+            all_objects = list_s3_objects(f"images/{location_folder}/{category}/", max_keys=1000)
+            
+            category_data.append({
+                'name': category,
+                'display_name': category.replace('_', ' ').title(),
+                'sample_images': sample_objects,
+                'total_images': len(all_objects)
+            })
+        
+        return jsonify({
+            'location_folder': location_folder,
+            'categories': category_data
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
