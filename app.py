@@ -141,9 +141,9 @@ def get_location_details_from_metadata(location_folder: str) -> Dict:
         # Get all categories in this location
         categories = get_categories_in_location(location_folder)
         
-        # Look through categories to find metadata (limit to first 3 categories for performance)
-        for category in categories[:3]:
-            objects = list_s3_objects(f"images/{location_folder}/{category}/", max_keys=3)
+        # Look through categories to find metadata (increased limit for better coverage)
+        for category in categories[:5]:  # Increased from 3 to 5 categories
+            objects = list_s3_objects(f"images/{location_folder}/{category}/", max_keys=5)  # Increased from 3 to 5
             for obj in objects:
                 metadata = obj.get('metadata', {})
                 if metadata.get('xmp-street') or metadata.get('xmp-city') or metadata.get('xmp-state'):
@@ -154,6 +154,38 @@ def get_location_details_from_metadata(location_folder: str) -> Dict:
                         'zipcode': metadata.get('xmp-zipcode', ''),
                         'location': metadata.get('xmp-location', '')
                     }
+        
+        # If no metadata found, try to parse from folder name
+        # Example: "n83rdave_tolleson_az" -> "N 83rd Ave, Tolleson, AZ"
+        if '_' in location_folder:
+            parts = location_folder.split('_')
+            if len(parts) >= 3:
+                # Handle street name parsing
+                street_part = parts[0]
+                if street_part.startswith('n') and len(street_part) > 1:
+                    street = f"N {street_part[1:]} Ave"
+                elif street_part.startswith('s') and len(street_part) > 1:
+                    street = f"S {street_part[1:]} Ave"
+                elif street_part.startswith('e') and len(street_part) > 1:
+                    street = f"E {street_part[1:]} Ave"
+                elif street_part.startswith('w') and len(street_part) > 1:
+                    street = f"W {street_part[1:]} Ave"
+                else:
+                    street = street_part.title()
+                
+                city = parts[1].title()
+                state = parts[2].upper()
+                
+                result = {
+                    'street': street,
+                    'city': city,
+                    'state': state,
+                    'zipcode': '',
+                    'location': f"{street}, {city}, {state}"
+                }
+                
+                print(f"Parsed address for {location_folder}: {result}")
+                return result
         
         # Fallback: return empty dict if no metadata found
         return {
@@ -180,13 +212,13 @@ def index():
         # Get location folders (cached)
         location_folders = cached_get_location_folders()
         
-        # Get some basic stats (limited for performance)
+        # Get some basic stats (increased limits for better data)
         total_objects = 0
         total_size = 0
         
-        # Get location details with metadata (limit to first 10 for performance)
+        # Get location details with metadata (increased limit to show more locations)
         location_details = []
-        for location in location_folders[:10]:
+        for location in location_folders[:20]:  # Increased from 10 to 20
             # Get location details from metadata
             location_info = get_location_details_from_metadata(location)
             
@@ -199,9 +231,9 @@ def index():
                 'location': location_info['location']
             })
             
-            # Get stats from first 3 locations only
-            if len(location_details) <= 3:
-                objects = list_s3_objects(f"images/{location}/", max_keys=50)
+            # Get stats from first 5 locations (increased from 3 to 5)
+            if len(location_details) <= 5:
+                objects = list_s3_objects(f"images/{location}/", max_keys=100)  # Increased from 50 to 100
                 total_objects += len(objects)
                 total_size += sum(obj['size'] for obj in objects)
         
@@ -241,7 +273,7 @@ def category_view(location_folder, category):
     """View all images in a specific category within a location"""
     try:
         page = request.args.get('page', 1, type=int)
-        per_page = 20
+        per_page = 50  # Increased from 20 to 50
         offset = (page - 1) * per_page
         
         # Get location details from metadata
