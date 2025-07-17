@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>S3 Image Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary-pink: #f8e0e0;
+            --accent-pink: #f0c8c8;
+            --dark-pink: #d4a5a5;
+            --text-dark: #2c3e50;
+            --text-muted: #6c757d;
+            --bg-light: #fafafa;
+            --border-light: #e9ecef;
+        }
+        
+        body {
+            background: var(--bg-light);
+            color: var(--text-dark);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+        }
+        
+        .navbar {
+            background: white;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 1rem 0;
+        }
+        
+        .navbar-brand {
+            font-weight: 600;
+            color: var(--text-dark) !important;
+        }
+        
+        .hero-section {
+            background: linear-gradient(135deg, var(--primary-pink) 0%, white 100%);
+            border-radius: 0;
+            padding: 3rem 0;
+            margin-bottom: 2rem;
+            border-bottom: 1px solid var(--border-light);
+        }
+        
+        .stats-card {
+            background: white;
+            border: 1px solid var(--border-light);
+            border-radius: 12px;
+            padding: 2rem;
+            text-align: center;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        
+        .stats-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+        }
+        
+        .stats-icon {
+            font-size: 2.5rem;
+            color: var(--dark-pink);
+            margin-bottom: 1rem;
+        }
+        
+        .stats-number {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--text-dark);
+            margin-bottom: 0.5rem;
+        }
+        
+        .stats-label {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .main-container {
+            background: white;
+            border-radius: 16px;
+            padding: 2.5rem;
+            margin: 2rem 0;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            border: 1px solid var(--border-light);
+        }
+        
+        .section-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--text-dark);
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        
+        .section-title i {
+            color: var(--dark-pink);
+        }
+        
+        .state-header {
+            background: var(--primary-pink);
+            color: var(--text-dark);
+            padding: 1.25rem 1.5rem;
+            border-radius: 12px;
+            margin: 2rem 0 1.5rem 0;
+            border: 1px solid var(--accent-pink);
+        }
+        
+        .state-header h4 {
+            margin: 0;
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+        
+        .state-header .location-count {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+        
+        .location-card {
+            background: white;
+            border: 1px solid var(--border-light);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            color: var(--text-dark);
+            display: block;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        
+        .location-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+            text-decoration: none;
+            color: var(--text-dark);
+            border-color: var(--accent-pink);
+        }
+        
+        .location-icon {
+            font-size: 1.5rem;
+            color: var(--dark-pink);
+            margin-bottom: 1rem;
+        }
+        
+        .location-address {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: var(--text-dark);
+        }
+        
+        .location-zipcode {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+        
+        .location-arrow {
+            color: var(--dark-pink);
+            font-size: 0.9rem;
+            margin-top: 0.5rem;
+        }
+        
+        .text-primary {
+            color: var(--dark-pink) !important;
+        }
+        
+        .btn-primary {
+            background: var(--dark-pink);
+            border: none;
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary:hover {
+            background: var(--accent-pink);
+            color: var(--text-dark);
+            transform: translateY(-1px);
+        }
+    </style>
+</head>
+<body>
+<nav class="navbar navbar-expand-lg">
+    <div class="container">
+        <a class="navbar-brand" href="#">
+            <i class="fas fa-cloud-upload-alt me-2"></i>
+            S3 Image Dashboard
+        </a>
+    </div>
+</nav>
+
+<div class="hero-section">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-lg-8">
+                <h1 class="display-5 fw-bold mb-3">Image Management System</h1>
+                <p class="lead mb-0 text-muted">Browse and manage your processed images with AI descriptions and location-based organization</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container">
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="stats-card">
+                <i class="fas fa-images stats-icon"></i>
+                <div class="stats-number">{{ total_objects }}</div>
+                <div class="stats-label">Total Images</div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="stats-card">
+                <i class="fas fa-hdd stats-icon"></i>
+                <div class="stats-number">{{ (total_size / (1024*1024))|round(2) }} MB</div>
+                <div class="stats-label">Total Size</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="main-container">
+        <h2 class="section-title">
+            <i class="fas fa-map-marker-alt"></i>
+            Locations by State
+        </h2>
+        
+        {% set current_state = namespace(value='') %}
+        {% set state_locations = {} %}
+        
+        {# Group locations by state #}
+        {% for location_detail in location_details %}
+            {% set state = location_detail.state if location_detail.state else 'Unknown' %}
+            {% if state not in state_locations %}
+                {% set _ = state_locations.update({state: []}) %}
+            {% endif %}
+            {% set _ = state_locations[state].append(location_detail) %}
+        {% endfor %}
+        
+        {# Display locations grouped by state #}
+        {% for state in state_locations.keys()|sort %}
+            <div class="state-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h4>
+                        <i class="fas fa-map me-2"></i>
+                        {{ state|upper }}
+                    </h4>
+                    <span class="location-count">{{ state_locations[state]|length }} location{{ 's' if state_locations[state]|length != 1 else '' }}</span>
+                </div>
+            </div>
+            
+            <div class="row">
+                {% for location_detail in state_locations[state] %}
+                <div class="col-md-6 col-lg-4">
+                    <a href="{{ url_for('location_view', location_folder=location_detail.folder) }}" class="location-card">
+                        <div class="text-center">
+                            <i class="fas fa-building location-icon"></i>
+                            
+                            {# Display address from metadata #}
+                            {% if location_detail.street or location_detail.city or location_detail.state %}
+                                <div class="location-address">
+                                    {% if location_detail.street %}
+                                        {{ location_detail.street|title }}<br>
+                                    {% endif %}
+                                    {% if location_detail.city and location_detail.state %}
+                                        {{ location_detail.city|title }}, {{ location_detail.state|upper }}
+                                    {% elif location_detail.city %}
+                                        {{ location_detail.city|title }}
+                                    {% elif location_detail.state %}
+                                        {{ location_detail.state|upper }}
+                                    {% endif %}
+                                </div>
+                                
+                                {% if location_detail.zipcode %}
+                                <div class="location-zipcode">
+                                    {{ location_detail.zipcode }}
+                                </div>
+                                {% endif %}
+                            {% else %}
+                                {# Fallback to folder name if no metadata #}
+                                <div class="location-address">
+                                    {{ location_detail.folder }}
+                                </div>
+                            {% endif %}
+                            
+                            <div class="location-arrow">
+                                <i class="fas fa-arrow-right"></i>
+                                View images
+                            </div>
+                        </div>
+                    </a>
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+        <div class="col-12">
+            <div class="text-center text-muted py-5">
+                <i class="fas fa-folder-open fa-3x mb-3"></i>
+                <h4>No locations found</h4>
+                <p>No processed images have been uploaded yet.</p>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html> 

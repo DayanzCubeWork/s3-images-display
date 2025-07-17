@@ -1,0 +1,13 @@
+# S3 Integration dependencies
+boto3>=1.26.0
+botocore>=1.29.0
+
+# Existing dependencies from your current setup
+requests==2.31.0
+python-dotenv==1.0.0
+supabase==2.3.0
+httpx==0.24.1
+pathlib==1.0.1
+Pillow>=10.0.0
+python-magic>=0.4.27
+ollama>=0.1.6 

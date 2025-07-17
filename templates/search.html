@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Search Results</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: #ffffff;
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .main-container {
+            background: #ffffff;
+            border-radius: 16px;
+            padding: 2.5rem;
+            margin: 2rem 0;
+            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.08);
+            border: 1px solid #f0f0f0;
+        }
+        
+        .page-header {
+            border-bottom: 2px solid #f8f9fa;
+            padding-bottom: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        
+        .page-title {
+            color: #2c3e50;
+            font-weight: 600;
+            font-size: 1.75rem;
+            margin: 0;
+        }
+        
+        .page-subtitle {
+            color: #6c757d;
+            font-size: 1rem;
+            margin: 0.5rem 0 0 0;
+        }
+        
+        .back-btn {
+            background: #ffffff;
+            border: 2px solid #f8f9fa;
+            color: #6c757d;
+            font-weight: 500;
+            padding: 0.75rem 1.5rem;
+            border-radius: 12px;
+            transition: all 0.2s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+        
+        .back-btn:hover {
+            background: #f8f9fa;
+            border-color: #e9ecef;
+            color: #495057;
+            transform: translateY(-1px);
+            text-decoration: none;
+        }
+        
+        .image-card {
+            background: #ffffff;
+            border: 1px solid #f0f0f0;
+            border-radius: 16px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+        }
+        
+        .image-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+            border-color: #e9ecef;
+        }
+        
+        .image-preview {
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .image-preview:hover {
+            transform: scale(1.02);
+        }
+        
+        .card-title {
+            color: #2c3e50;
+            font-weight: 600;
+            font-size: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        .metadata-section {
+            margin-bottom: 1.5rem;
+        }
+        
+        .metadata-label {
+            color: #6c757d;
+            font-weight: 500;
+            font-size: 0.875rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .metadata-badge {
+            background: linear-gradient(135deg, #F6D6D6 0%, #f8e0e0 100%);
+            color: #2c3e50;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.875rem;
+            margin: 0.25rem 0.25rem 0.25rem 0;
+            display: inline-block;
+            font-weight: 500;
+        }
+        
+        .s3-key {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 0.75rem;
+            font-family: 'Courier New', monospace;
+            font-size: 0.8rem;
+            word-break: break-all;
+            color: #495057;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #F6D6D6 0%, #f8e0e0 100%);
+            border: none;
+            color: #2c3e50;
+            font-weight: 500;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+        }
+        
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #f0c8c8 0%, #F6D6D6 100%);
+            color: #2c3e50;
+            transform: translateY(-1px);
+        }
+        
+        .btn-outline-secondary {
+            border: 1px solid #dee2e6;
+            color: #6c757d;
+            background: #ffffff;
+            font-weight: 500;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+        }
+        
+        .btn-outline-secondary:hover {
+            background: #f8f9fa;
+            border-color: #adb5bd;
+            color: #495057;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 3rem 1rem;
+            color: #6c757d;
+        }
+        
+        .empty-state i {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+        
+        .empty-state h4 {
+            color: #495057;
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+        }
+        
+        .empty-state p {
+            margin: 0;
+            font-size: 0.95rem;
+        }
+        
+        .description-text {
+            color: #495057;
+            line-height: 1.6;
+            font-size: 0.9rem;
+        }
+        
+        .other-metadata {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-top: 1rem;
+        }
+        
+        .other-metadata strong {
+            color: #495057;
+            font-size: 0.875rem;
+        }
+        
+        .other-metadata ul {
+            margin: 0.5rem 0 0 0;
+        }
+        
+        .other-metadata li {
+            color: #6c757d;
+            font-size: 0.8rem;
+            margin-bottom: 0.25rem;
+        }
+        
+        .search-summary {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 1rem 1.5rem;
+            margin-bottom: 2rem;
+            border: 1px solid #e9ecef;
+        }
+        
+        .search-summary .badge {
+            background: linear-gradient(135deg, #F6D6D6 0%, #f8e0e0 100%);
+            color: #2c3e50;
+            font-weight: 500;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.875rem;
+        }
+    </style>
+</head>
+<body>
+<div class="container py-4">
+    <a href="/" class="btn back-btn">
+        <i class="fas fa-arrow-left me-2"></i>
+        Back to Dashboard
+    </a>
+    
+    <div class="main-container">
+        <div class="page-header">
+            <h1 class="page-title">
+                <i class="fas fa-search me-2" style="color: #F6D6D6;"></i>
+                Search Results
+            </h1>
+            <p class="page-subtitle">
+                Found <span class="badge">{{ result_count }}</span> result{{ 's' if result_count != 1 else '' }} for "{{ query }}"
+            </p>
+        </div>
+        
+        <div class="search-summary">
+            <div class="d-flex align-items-center">
+                <i class="fas fa-info-circle me-2" style="color: #F6D6D6;"></i>
+                <span class="text-muted">Search query: <strong>"{{ query }}"</strong></span>
+            </div>
+        </div>
+        
+        <div class="row">
+            {% for obj in objects %}
+            <div class="col-lg-6 mb-4">
+                <div class="image-card">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <img src="{{ obj.presigned_url }}" alt="{{ obj.filename }}" 
+                                 class="image-preview w-100 mb-3" style="height: 200px; object-fit: cover;"
+                                 onclick="window.open('{{ obj.presigned_url }}', '_blank')">
+                        </div>
+                        <div class="col-md-8">
+                            <h6 class="card-title">
+                                <i class="fas fa-image me-2" style="color: #F6D6D6;"></i>
+                                {{ obj.filename }}
+                            </h6>
+                            
+                            {% if obj.metadata.description %}
+                            <div class="metadata-section">
+                                <div class="metadata-label">Description</div>
+                                <p class="description-text mb-0">{{ obj.metadata.description }}</p>
+                            </div>
+                            {% endif %}
+                            
+                            <div class="metadata-section">
+                                <div class="metadata-label">Location</div>
+                                {% if obj.metadata['xmp-street'] %}
+                                    <span class="metadata-badge">
+                                        <i class="fas fa-map-marker-alt me-1"></i>
+                                        {{ obj.metadata['xmp-street'] }}
+                                    </span>
+                                {% endif %}
+                                {% if obj.metadata['xmp-city'] or obj.metadata['xmp-state'] %}
+                                    <span class="metadata-badge">
+                                        <i class="fas fa-city me-1"></i>
+                                        {{ obj.metadata['xmp-city'] or '' }}{% if obj.metadata['xmp-city'] and obj.metadata['xmp-state'] %}, {% endif %}{{ obj.metadata['xmp-state'] or '' }}
+                                    </span>
+                                {% endif %}
+                                {% if obj.metadata['xmp-zipcode'] %}
+                                    <span class="metadata-badge">
+                                        <i class="fas fa-mailbox me-1"></i>
+                                        {{ obj.metadata['xmp-zipcode'] }}
+                                    </span>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="metadata-section">
+                                <div class="metadata-label">S3 Key</div>
+                                <div class="s3-key">{{ obj.key }}</div>
+                            </div>
+                            
+                            <div class="d-flex gap-2">
+                                <a href="{{ obj.presigned_url }}" target="_blank" class="btn btn-primary btn-sm">
+                                    <i class="fas fa-external-link-alt me-1"></i>
+                                    View Full Size
+                                </a>
+                                <button class="btn btn-outline-secondary btn-sm" onclick="copyToClipboard('{{ obj.key }}')">
+                                    <i class="fas fa-copy me-1"></i>
+                                    Copy S3 Key
+                                </button>
+                            </div>
+                            
+                            {% if obj.metadata %}
+                            <div class="other-metadata">
+                                <strong>Other Metadata</strong>
+                                <ul class="list-unstyled mt-2">
+                                {% for k, v in obj.metadata.items() if k not in ['description','xmp-street','xmp-city','xmp-state','xmp-zipcode'] %}
+                                    <li><strong>{{ k }}:</strong> {{ v }}</li>
+                                {% endfor %}
+                                </ul>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div class="col-12">
+                <div class="empty-state">
+                    <i class="fas fa-search"></i>
+                    <h4>No results found</h4>
+                    <p>Try searching with different keywords or browse the dashboard to explore available images.</p>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+function copyToClipboard(text) {
+    navigator.clipboard.writeText(text).then(function() {
+        console.log('S3 key copied to clipboard');
+    });
+}
+</script>
+</body>
+</html> 

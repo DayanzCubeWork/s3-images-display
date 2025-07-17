@@ -1,0 +1,20 @@
+## Ignore Python virtual environments
+myenv/
+venv/
+
+# Environment variable files
+.env
+.env.*
+
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Logs and outputs
+*.log
+processed_images.json
+
+# OS-specific files
+.DS_Store
+Thumbs.db
